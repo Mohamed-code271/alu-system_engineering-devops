@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Installs and configures HAProxy to round-robin between web-01 and web-02
+
+sudo apt-get update -y
+sudo apt-get install -y haproxy
+
+# Allow the init script to start HAProxy
+echo "ENABLED=1" | sudo tee /etc/default/haproxy > /dev/null
+
+# Remove our old config if the script was run before
+sudo sed -i '/^# BEGIN LB CONFIG/,/^# END LB CONFIG/d' /etc/haproxy/haproxy.cfg
+
+# Add our config
+cat <<'EOF' | sudo tee -a /etc/haproxy/haproxy.cfg > /dev/null
+# BEGIN LB CONFIG
+frontend http_front
+    bind *:80
+    mode http
+    default_backend http_back
+
+backend http_back
+    mode http
+    balance roundrobin
+    server 7342-web-01 WEB01_IP:80 check
+    server 7342-web-02 WEB02_IP:80 check
+# END LB CONFIG
+EOF
+
+sudo haproxy -c -f /etc/haproxy/haproxy.cfg
+sudo service haproxy restart
